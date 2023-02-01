@@ -62,6 +62,7 @@ if [ -f $SRC ]; then
   if file $SRC | grep -q ": data" ; then
     echo "----------------------------------------------"
     if which PC1 >/dev/null; then
+      FW_TAR=$DEST/`basename $SRC`.tar
       FW_TGZ=$DEST/`basename $SRC`.tgz
       echo "decrypting '$SRC' to '$FW_TGZ' using PC1 tool ..."
       PC1 d QNAPNASVERSION4 $SRC $FW_TGZ
@@ -78,7 +79,8 @@ if [ -f $SRC ]; then
     echo "----------------------------------------------"
     echo "extracting '$SRC' into '$DEST/fw'..."
     mkdir -p $DEST/fw
-    tar xf $SRC -C $DEST/fw
+    gunzip $FW_TGZ || true
+    tar xvf $FW_TAR -C $DEST/fw
     SRC=$DEST/fw
   fi
 fi
@@ -217,7 +219,7 @@ fi
 
 if [ -e $ROOTFS2_BZ ]; then
   echo "extracting $ROOTFS2_BZ (bzip2, tar)..."
-  tar -xjf $ROOTFS2_BZ -C $SYSROOT
+  tar -xjf $ROOTFS2_BZ -C $SYSROOT || true
 fi
 
 if [ -f $ROOTFS2_IMG ]; then
@@ -266,12 +268,12 @@ done
 
 if [ -e $DEST/qpkg/libboost.tgz ]; then
   echo "extracting 'qpkg/libboost.tgz' -> sysroot/usr/lib..."
-  tar xzf $DEST/qpkg/libboost.tgz -C $SYSROOT/usr/lib
+  tar xzf $DEST/qpkg/libboost.tgz -C $SYSROOT/usr/lib || true
 elif [ -e $DEST/qpkg/DSv3.tgz ]; then
   echo "extracting libboost from 'qpkg/DSv3.tgz' -> sysroot/usr/lib..."
   tar tzf $DEST/qpkg/DSv3.tgz |grep libboost | tar xzf $DEST/qpkg/DSv3.tgz -C $SYSROOT -T -
 fi
 # add symlinks to boost libs, this assumes boost 1.42.0
-(cd $SYSROOT/usr/lib; for f in libboost*.so.1.42.0; do ln -s $f ${f%.1.42.0}; done)
+(mkdir -p $SYSROOT/usr/lib; cd $SYSROOT/usr/lib; for f in libboost*.so.1.42.0; do ln -s $f ${f%.1.42.0}; done)
 
 (cd $SYSROOT && find . -ls) >$DEST/sysroot.txt
