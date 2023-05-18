@@ -203,9 +203,14 @@ if [ -e $INITRD ]; then
   if file $INITRD | grep -q gzip ; then
     echo "extracting '$INITRD' (gzip)..."
     gzip -d <$INITRD >$DEST/initrd.$$
-    sudo mount -t ext2 $DEST/initrd.$$ /mnt -oro,loop
-    cp -a /mnt/* $SYSROOT || true
-    sudo umount /mnt
+    # sudo mount -t ext2 $DEST/initrd.$$ /mnt -oro,loop
+    # revised by Tyao
+    # the file format of initrd.$$ is ASCII cpio archive (SVR4 with no CRC)
+    # use cpio to mount initrd.$$
+    sudo cpio -id < $DEST/initrd.$$ -D /mnt
+    sudo cp -a /mnt/* $SYSROOT || true
+    # sudo umount /mnt
+    sudo rm -rf /mnt/*
     rm $DEST/initrd.$$
   fi
 fi
@@ -219,7 +224,10 @@ fi
 
 if [ -e $ROOTFS2_BZ ]; then
   echo "extracting $ROOTFS2_BZ (bzip2, tar)..."
-  tar -xjf $ROOTFS2_BZ -C $SYSROOT || true
+  # revised by Tyao
+  # rootfs2.bz: gzip compressed data, last modified: Sun Apr 16 08:35:02 2023, from Unix, original size modulo 2^32 168038400
+  # tar -xjf $ROOTFS2_BZ -C $SYSROOT || true
+  tar -xzf $ROOTFS2_BZ -C $SYSROOT || true
 fi
 
 if [ -f $ROOTFS2_IMG ]; then
@@ -268,12 +276,13 @@ done
 
 if [ -e $DEST/qpkg/libboost.tgz ]; then
   echo "extracting 'qpkg/libboost.tgz' -> sysroot/usr/lib..."
+  mkdir -p $SYSROOT/usr/lib || true
   tar xzf $DEST/qpkg/libboost.tgz -C $SYSROOT/usr/lib || true
 elif [ -e $DEST/qpkg/DSv3.tgz ]; then
   echo "extracting libboost from 'qpkg/DSv3.tgz' -> sysroot/usr/lib..."
   tar tzf $DEST/qpkg/DSv3.tgz |grep libboost | tar xzf $DEST/qpkg/DSv3.tgz -C $SYSROOT -T -
 fi
 # add symlinks to boost libs, this assumes boost 1.42.0
-(mkdir -p $SYSROOT/usr/lib; cd $SYSROOT/usr/lib; for f in libboost*.so.1.42.0; do ln -s $f ${f%.1.42.0}; done)
+(cd $SYSROOT/usr/lib; for f in libboost*.so.1.42.0; do ln -s $f ${f%.1.42.0}; done)
 
 (cd $SYSROOT && find . -ls) >$DEST/sysroot.txt
